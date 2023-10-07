@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Hardware;
+use App\Models\SmsSend;
+use App\Services\Sms;
 use Illuminate\Http\Request;
 
 class HardwareController extends Controller
@@ -45,49 +47,33 @@ class HardwareController extends Controller
             $statusUpdate->gas_detected = $request->gas_detected;
             $statusUpdate->valve_open = $currentData->valve_open;
             $statusUpdate->save();
+            if ($request->gas_detected == true) {
+                $smsStatus = SmsSend::first();
+                if ($smsStatus->status == 'not_send') {
+                    $smsStatus->status = 'send';
+                    $smsStatus->update();
+                    $message = "Gas had been detected you can check.";
+                    $sms = new Sms();
+                    $phone = '0788760349';
+                    $sms->recipients([$phone])
+                        ->message($message)
+                        ->sender(env('SMS_SENDERID'))
+                        ->username(env('SMS_USERNAME'))
+                        ->password(env('SMS_PASSWORD'))
+                        ->apiUrl("www.intouchsms.co.rw/api/sendsms/.json")
+                        ->callBackUrl("");
+                    $sms->send();
+                }
+            } else {
+                $smsStatus = SmsSend::first();
+                if ($smsStatus->status == 'send') {
+                    $smsStatus->status = 'not_send';
+                    $smsStatus->update();
+                }
+            }
             return response()->json([
                 'message' => 'Status saved in database',
             ], 200);
         }
-    }
-
-    /**
-     * Display a listing of the resource.
-     */
-    public function index()
-    {
-        //
-    }
-
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(Request $request)
-    {
-        //
-    }
-
-    /**
-     * Display the specified resource.
-     */
-    public function show(Hardware $hardware)
-    {
-        //
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, Hardware $hardware)
-    {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(Hardware $hardware)
-    {
-        //
     }
 }
