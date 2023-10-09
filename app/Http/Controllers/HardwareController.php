@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Hardware;
 use App\Models\SmsSend;
+use App\Models\User;
 use App\Services\Sms;
 use Illuminate\Http\Request;
 
@@ -54,8 +55,8 @@ class HardwareController extends Controller
                     $smsStatus->update();
                     $message = "Gas had been detected you can check.";
                     $sms = new Sms();
-                    $phone = '0788760349';
-                    $sms->recipients([$phone])
+                    $user = User::first();
+                    $sms->recipients([$user->phone])
                         ->message($message)
                         ->sender(env('SMS_SENDERID'))
                         ->username(env('SMS_USERNAME'))
