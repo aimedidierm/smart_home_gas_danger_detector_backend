@@ -28,15 +28,20 @@ class HardwareController extends Controller
     public function updateData(Request $request)
     {
         $request->validate([
-            'valve_open' => 'sometimes|boolean',
+            'valve_open' => 'sometimes|in:true,false',
             'gas_detected' => 'sometimes|boolean'
         ]);
 
         $currentData = Hardware::latest()->first();
         if ($request->has('valve_open')) {
+            if ($request->valve_open == 'true') {
+                $valveStatus = true;
+            } else {
+                $valveStatus = false;
+            }
             $statusUpdate = new Hardware;
             $statusUpdate->gas_detected = $currentData->gas_detected;
-            $statusUpdate->valve_open = $request->valve_open;
+            $statusUpdate->valve_open = $valveStatus;
             $statusUpdate->save();
             return response()->json([
                 'message' => 'Status saved in database',

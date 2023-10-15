@@ -1,6 +1,8 @@
 <?php
 
+use App\Http\Controllers\AuthController;
 use App\Http\Controllers\HardwareController;
+use App\Http\Controllers\UserController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -21,3 +23,7 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 
 Route::get('/status', [HardwareController::class, 'status']);
 Route::post('/status', [HardwareController::class, 'updateData']);
+
+Route::post('/login', [AuthController::class, 'mobileLogin']);
+Route::get('/profile', [UserController::class, 'edit']);
+// Route::post('/profile', [UserController::class, 'updateApi']);
