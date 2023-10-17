@@ -4,23 +4,24 @@
 #include <WiFiClientSecureBearSSL.h>
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
-#define MQ2pin (A0)
+#include <ArduinoJson.h>
+#define MQ3pin (A0)
 LiquidCrystal_I2C lcd(0x27, 20, 4);
 
-const char* ssid = "Balance";
-const char* password = "balance123";
+const char* ssid = "gas_detector";
+const char* password = "gas_detector123";
 
-int buzzer = D0;
+int buzzerPin = D0;
 int valve = D5;
-
+bool gasDetected = false;
 float sensorValue;
 int sensorThreshold = 400, pstatus = 0;
 
 void setup() {
   Serial.begin(115200);
-  pinMode(buzzer, OUTPUT);
+  pinMode(buzzerPin, OUTPUT);
   pinMode(valve, OUTPUT);
-  //  digitalWrite(valve, HIGH);
+  digitalWrite(valve,HIGH);
   lcd.init();
   lcd.init();
   lcd.backlight();
@@ -40,7 +41,7 @@ void setup() {
     delay(1000);
   }
   lcd.clear(),
-            lcd.print("System");
+  lcd.print("System");
   lcd.setCursor(0, 1);
   lcd.print("Starting");
   delay(3000);
@@ -49,6 +50,22 @@ void setup() {
 
 void loop() {
   updateStatus();
+  float sensorValue = analogRead(MQ3pin);  // Read analog value from MQ3 sensor
+  Serial.println("Sensor:");
+  Serial.println(sensorValue);
+  if(sensorValue>70)
+  {
+    gasDetected = true;
+    lcd.clear();
+    lcd.println("Gas detected");
+    playBeep(1000, 500);
+  } else {
+    gasDetected = false;
+    lcd.clear();
+    lcd.println("Normal");
+  }
+  delay(1000);
+  updateHardwareStatus();
 }
 
 void updateStatus() {
@@ -87,12 +104,19 @@ void updateStatus() {
         } else {
             // Access JSON data
             bool valveOpen = doc["valve_open"];
-            bool gasDetected = doc["gas_detected"];
 
             Serial.print(F("Valve Open: "));
             Serial.println(valveOpen);
-            Serial.print(F("Gas Detected: "));
-            Serial.println(gasDetected);
+            if(valveOpen)
+            {
+              digitalWrite(valve, LOW);
+              lcd.clear();
+              lcd.println("Valve open");
+            } else{
+              digitalWrite(valve, HIGH);
+              lcd.clear();
+              lcd.println("Valve closed");
+            }
         }
         }
       } else {
@@ -101,9 +125,76 @@ void updateStatus() {
 
       https.end();
     } else {
+      lcd.clear();
+      lcd.println("Unable to connect\n");
       Serial.printf("[HTTPS] Unable to connect\n");
     }
   }
-  Serial.println();
-  Serial.println("Waiting 2min before the next round...");
+}
+
+void updateHardwareStatus() {
+  if (WiFi.status() == WL_CONNECTED) {
+
+    std::unique_ptr<BearSSL::WiFiClientSecure> client(new BearSSL::WiFiClientSecure);
+
+    // Ignore SSL certificate validation (for testing only)
+    client->setInsecure();
+    HTTPClient http;
+
+    Serial.println("[HTTPS] begin...");
+
+    if (http.begin(*client, "https://umutoni.itaratec.com/api/status")) {  // HTTPS
+      Serial.println("[HTTPS] POST...");
+
+      http.addHeader("Content-Type", "application/json");
+
+      DynamicJsonDocument jsonDoc(128); // Adjust the buffer size as needed
+
+      jsonDoc["gas_detected"] = gasDetected;
+
+      String jsonPayload;
+      serializeJson(jsonDoc, jsonPayload);
+
+      // Send the POST request with the JSON payload
+      int httpCode = http.POST(jsonPayload);
+
+      // Check the HTTP response code
+      if (httpCode > 0) {
+        Serial.printf("[HTTPS] POST... code: %d\n", httpCode);
+
+        // Read and print the response from the server
+        String payload = http.getString();
+        Serial.println(payload);
+        DynamicJsonDocument doc(512); // Adjust the size based on your payload size
+        DeserializationError error = deserializeJson(doc, payload);
+
+        // Check for parsing errors
+        if (error) {
+          Serial.print(F("Error parsing JSON: "));
+          Serial.println(error.c_str());
+        } else {
+          // Access JSON data
+        }
+      } else {
+        Serial.printf("[HTTPS] POST... failed, error: %s\n", http.errorToString(httpCode).c_str());
+        lcd.clear(),
+        lcd.print("Sending failed");
+        delay(3000);
+      }
+
+      // End the HTTP connection
+      http.end();
+    } else {
+      Serial.println("[HTTPS] Unable to connect");
+      lcd.clear(),
+      lcd.print("Unable to connect");
+      delay(3000);
+    }
+  }
+}
+
+void playBeep(int frequency, int duration) {
+  tone(buzzerPin, frequency, duration);
+  delay(duration);
+  noTone(buzzerPin);
 }
