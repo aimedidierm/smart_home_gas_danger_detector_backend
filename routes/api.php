@@ -26,4 +26,5 @@ Route::post('/status', [HardwareController::class, 'updateData']);
 
 Route::post('/login', [AuthController::class, 'mobileLogin']);
 Route::get('/profile', [UserController::class, 'edit']);
-// Route::post('/profile', [UserController::class, 'updateApi']);
+Route::put('/profile', [UserController::class, 'updateApi']);
+Route::post('/forget', [AuthController::class, 'forget']);
